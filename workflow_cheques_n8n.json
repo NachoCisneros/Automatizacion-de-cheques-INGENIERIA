@@ -1,0 +1,241 @@
+{
+  "name": "Recepción y Clasificación de Cheques - IA",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cheques/nuevo",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1f1a1a10-0001-4000-8000-000000000001",
+      "name": "Webhook - Nuevo Cheque",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-1200, 0],
+      "webhookId": "cheques-nuevo"
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "upload",
+        "binaryPropertyName": "imagen",
+        "options": {
+          "folder": "cheques"
+        }
+      },
+      "id": "1f1a1a10-0001-4000-8000-000000000002",
+      "name": "Cloudinary - Subir Imagen",
+      "type": "n8n-nodes-base.cloudinary",
+      "typeVersion": 1,
+      "position": [-960, 0],
+      "notes": "Requiere credencial de Cloudinary configurada en n8n (Cloud name, API key, API secret)."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={{$credentials.googleGeminiApi.apiKey}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"contents\": [\n    {\n      \"parts\": [\n        {\n          \"text\": \"Sos un asistente que lee imágenes de cheques bancarios argentinos. Analizá la imagen y devolvé EXCLUSIVAMENTE un JSON (sin texto adicional, sin markdown) con esta estructura exacta:\\n{\\n  \\\"numero_cheque\\\": string,\\n  \\\"banco_emisor\\\": string,\\n  \\\"cliente_razon_social\\\": string,\\n  \\\"cuit\\\": string o null,\\n  \\\"monto\\\": number,\\n  \\\"fecha_emision\\\": \\\"YYYY-MM-DD\\\",\\n  \\\"fecha_vencimiento\\\": \\\"YYYY-MM-DD\\\",\\n  \\\"confianza\\\": number entre 0 y 1 indicando qué tan segura está la lectura,\\n  \\\"inconsistencia\\\": boolean (true si el cheque ya está vencido, el monto en números no coincide con el monto en letras, o falta algún dato clave),\\n  \\\"observaciones\\\": string explicando cualquier inconsistencia detectada, o null si no hay ninguna\\n}\\nSi algún campo no se puede leer con certeza, usá null en ese campo y bajá el valor de confianza.\"\n        },\n        {\n          \"inline_data\": {\n            \"mime_type\": \"image/jpeg\",\n            \"data\": \"{{$node[\\\"Cloudinary - Subir Imagen\\\"].json[\\\"base64\\\"] || $binary.imagen.data}}\"\n          }\n        }\n      ]\n    }\n  ],\n  \"generationConfig\": {\n    \"temperature\": 0.1,\n    \"responseMimeType\": \"application/json\"\n  }\n} }}",
+        "options": {}
+      },
+      "id": "1f1a1a10-0001-4000-8000-000000000003",
+      "name": "Gemini - Extraer Datos (OCR + IA)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-720, 0],
+      "notes": "Llama a la API de Gemini con la imagen en base64 y pide el JSON estructurado. Reemplazar la referencia a base64 según cómo entregue Cloudinary el binario, o usar el binario original del webhook si Cloudinary no lo devuelve."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parsea la respuesta de Gemini (viene como texto JSON dentro de candidates[0].content.parts[0].text)\nconst response = $input.first().json;\nlet datos;\ntry {\n  const rawText = response.candidates[0].content.parts[0].text;\n  datos = JSON.parse(rawText);\n} catch (e) {\n  throw new Error('No se pudo parsear la respuesta de Gemini: ' + e.message);\n}\n\nconst cloudinaryUrl = $node[\"Cloudinary - Subir Imagen\"].json.secure_url || null;\n\nreturn [{\n  json: {\n    numero_cheque: datos.numero_cheque,\n    banco_emisor: datos.banco_emisor,\n    cliente_razon_social: datos.cliente_razon_social,\n    cuit: datos.cuit,\n    monto: datos.monto,\n    fecha_emision: datos.fecha_emision,\n    fecha_vencimiento: datos.fecha_vencimiento,\n    confianza_ia: datos.confianza,\n    inconsistencia: datos.inconsistencia,\n    observaciones: datos.observaciones,\n    imagen_url: cloudinaryUrl,\n    datos_ia: datos\n  }\n}];"
+      },
+      "id": "1f1a1a10-0001-4000-8000-000000000004",
+      "name": "Normalizar Datos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-480, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{$json.numero_cheque}}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            },
+            {
+              "leftValue": "={{$json.monto}}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1f1a1a10-0001-4000-8000-000000000005",
+      "name": "¿Datos válidos?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-240, 0]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": "public",
+        "table": "cheques",
+        "columns": "numero_cheque, banco_emisor, cliente_razon_social, cuit, monto, fecha_emision, fecha_vencimiento, imagen_url, datos_ia, confianza_ia, inconsistencia, observaciones",
+        "options": {
+          "queryReplacement": "={{$json.numero_cheque}}, {{$json.banco_emisor}}, {{$json.cliente_razon_social}}, {{$json.cuit}}, {{$json.monto}}, {{$json.fecha_emision}}, {{$json.fecha_vencimiento}}, {{$json.imagen_url}}, {{JSON.stringify($json.datos_ia)}}, {{$json.confianza_ia}}, {{$json.inconsistencia}}, {{$json.observaciones}}"
+        }
+      },
+      "id": "1f1a1a10-0001-4000-8000-000000000006",
+      "name": "Neon - Insertar Cheque",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [0, -120],
+      "notes": "Usar credencial Postgres apuntando al connection string de Neon."
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": true, \"mensaje\": \"Cheque registrado correctamente\", \"cheque\": $json } }}"
+      },
+      "id": "1f1a1a10-0001-4000-8000-000000000007",
+      "name": "Respuesta OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [240, -120]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 422,
+        "responseBody": "={{ { \"ok\": false, \"mensaje\": \"La IA no pudo extraer datos suficientes del cheque. Revisar manualmente.\", \"datos_extraidos\": $json } }}"
+      },
+      "id": "1f1a1a10-0001-4000-8000-000000000008",
+      "name": "Respuesta Error - Revisión Manual",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [0, 120]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "1f1a1a10-0001-4000-8000-000000000009",
+      "name": "Cron Diario 8am - Alertas",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-1200, 320]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM vista_proximos_vencimientos WHERE dias_restantes <= 3;"
+      },
+      "id": "1f1a1a10-0001-4000-8000-00000000000a",
+      "name": "Neon - Próximos Vencimientos",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [-960, 320],
+      "notes": "Usar la misma credencial Postgres de Neon."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{$json.numero_cheque}}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1f1a1a10-0001-4000-8000-00000000000b",
+      "name": "¿Hay vencimientos próximos?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-720, 320]
+    },
+    {
+      "parameters": {
+        "fromEmail": "alertas@tuempresa.com",
+        "toEmail": "tesoreria@tuempresa.com",
+        "subject": "=Alerta: {{$json.numero_cheque}} vence en {{$json.dias_restantes}} día(s)",
+        "text": "=El cheque N° {{$json.numero_cheque}} de {{$json.cliente_razon_social}} (banco {{$json.banco_emisor}}) por ${{$json.monto}} vence el {{$json.fecha_vencimiento}}.",
+        "options": {}
+      },
+      "id": "1f1a1a10-0001-4000-8000-00000000000c",
+      "name": "Enviar Alerta por Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [-480, 320],
+      "notes": "Configurar credencial SMTP, o reemplazar por nodo de Slack/Telegram si se prefiere."
+    }
+  ],
+  "connections": {
+    "Webhook - Nuevo Cheque": {
+      "main": [[{ "node": "Cloudinary - Subir Imagen", "type": "main", "index": 0 }]]
+    },
+    "Cloudinary - Subir Imagen": {
+      "main": [[{ "node": "Gemini - Extraer Datos (OCR + IA)", "type": "main", "index": 0 }]]
+    },
+    "Gemini - Extraer Datos (OCR + IA)": {
+      "main": [[{ "node": "Normalizar Datos", "type": "main", "index": 0 }]]
+    },
+    "Normalizar Datos": {
+      "main": [[{ "node": "¿Datos válidos?", "type": "main", "index": 0 }]]
+    },
+    "¿Datos válidos?": {
+      "main": [
+        [{ "node": "Neon - Insertar Cheque", "type": "main", "index": 0 }],
+        [{ "node": "Respuesta Error - Revisión Manual", "type": "main", "index": 0 }]
+      ]
+    },
+    "Neon - Insertar Cheque": {
+      "main": [[{ "node": "Respuesta OK", "type": "main", "index": 0 }]]
+    },
+    "Cron Diario 8am - Alertas": {
+      "main": [[{ "node": "Neon - Próximos Vencimientos", "type": "main", "index": 0 }]]
+    },
+    "Neon - Próximos Vencimientos": {
+      "main": [[{ "node": "¿Hay vencimientos próximos?", "type": "main", "index": 0 }]]
+    },
+    "¿Hay vencimientos próximos?": {
+      "main": [[{ "node": "Enviar Alerta por Email", "type": "main", "index": 0 }]]
+    }
+  }
+}

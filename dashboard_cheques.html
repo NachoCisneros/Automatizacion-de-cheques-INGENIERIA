@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Libro de Cheques</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" />
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: 'IBM Plex Sans', sans-serif; background: #EFE9DD; min-height: 100vh; color: #1F2D3D; }
+
+  /* --- Config bar --- */
+  .config-bar { background: #1F2D3D; color: #F4F1EA; padding: 10px 32px; display: flex; align-items: center; gap: 12px; font-size: 12px; }
+  .config-bar input { flex: 1; max-width: 500px; padding: 6px 10px; border: 1px solid #445; border-radius: 3px; background: #2a3a4d; color: #F4F1EA; font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
+  .config-bar button { background: #C98A2B; color: #1F2D3D; border: none; border-radius: 3px; padding: 6px 16px; font-weight: 600; cursor: pointer; font-size: 12px; }
+
+  /* --- Header --- */
+  .header { border-bottom: 1px solid #C7BFAE; padding: 18px 32px; display: flex; align-items: center; justify-content: space-between; background: #F4F1EA; }
+  .header h1 { font-family: 'Fraunces', serif; font-size: 22px; font-weight: 700; }
+  .header .sub { font-size: 12px; color: #8a8273; }
+  .tabs { display: flex; gap: 4px; }
+  .tabs button { background: transparent; color: #1F2D3D; border: none; border-radius: 3px; padding: 8px 16px; font-size: 13px; cursor: pointer; }
+  .tabs button.active { background: #1F2D3D; color: #F4F1EA; font-weight: 600; }
+
+  /* --- Content --- */
+  .content { padding: 28px 32px 60px; }
+
+  /* --- Cards --- */
+  .stat-row { display: flex; gap: 16px; flex-wrap: wrap; }
+  .stat-card { flex: 1; min-width: 150px; background: #FBF8F2; border: 1px solid #C7BFAE; border-radius: 4px; padding: 18px 20px; position: relative; overflow: hidden; }
+  .stat-card .accent { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; }
+  .stat-card .label { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #6b6457; margin-bottom: 8px; }
+  .stat-card .value { font-family: 'Fraunces', serif; font-size: 32px; font-weight: 600; line-height: 1; }
+  .stat-card .sub { font-size: 12px; color: #8a8273; margin-top: 6px; }
+
+  /* --- Divider --- */
+  .divider { height: 1px; margin: 28px 0; background-image: repeating-linear-gradient(to right, #C7BFAE 0 6px, transparent 6px 12px); }
+
+  /* --- Section title --- */
+  .section-title { font-family: 'Fraunces', serif; font-size: 18px; font-weight: 600; margin: 0 0 14px 0; }
+
+  /* --- Table --- */
+  .table-wrap { border: 1px solid #C7BFAE; border-radius: 4px; overflow: hidden; }
+  .table-head { display: grid; padding: 10px 16px; background: #1F2D3D; color: #F4F1EA; font-family: 'IBM Plex Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .table-row { display: grid; align-items: center; padding: 12px 16px; cursor: pointer; }
+  .table-row:hover { background: #E9E3D5 !important; }
+  .table-5 { grid-template-columns: 0.8fr 1.2fr 1fr 1fr 1fr; }
+  .table-5-dash { grid-template-columns: 1.4fr 1fr 1fr 1fr auto; }
+
+  /* --- Estado tag --- */
+  .estado-tag { display: inline-flex; align-items: center; gap: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; border: 1px solid; border-radius: 3px; padding: 3px 8px; }
+  .estado-tag .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+
+  /* --- Filters --- */
+  .filters { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .filters input { border: 1px solid #C7BFAE; border-radius: 3px; padding: 9px 10px; font-size: 14px; color: #1F2D3D; background: #fff; width: 240px; }
+  .filter-btn { background: transparent; color: #1F2D3D; border: 1px solid #C7BFAE; border-radius: 3px; padding: 6px 14px; font-size: 12px; cursor: pointer; }
+  .filter-btn.active { background: #1F2D3D; color: #F4F1EA; border-color: #1F2D3D; }
+
+  /* --- Detail --- */
+  .detail-card { border: 1px solid #C7BFAE; border-radius: 4px; padding: 24px; background: #FBF8F2; max-width: 480px; }
+  .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #E4DECF; font-size: 14px; }
+  .detail-label { color: #6b6457; }
+  .detail-value { font-weight: 600; }
+  .mono { font-family: 'IBM Plex Mono', monospace; }
+
+  /* --- Bar chart --- */
+  .bar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .bar-label { width: 80px; font-size: 13px; }
+  .bar-track { flex: 1; background: #E4DECF; border-radius: 2px; height: 10px; }
+  .bar-fill { height: 100%; background: #3D6FA1; border-radius: 2px; }
+  .bar-value { width: 100px; text-align: right; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #6b6457; }
+
+  /* --- Loading --- */
+  .loading { text-align: center; padding: 40px; color: #8a8273; font-size: 14px; }
+  .error-msg { background: #fbe9e7; border: 1px solid #A13D2B; color: #A13D2B; padding: 12px; border-radius: 4px; font-size: 13px; margin-bottom: 16px; }
+
+  /* --- Radio --- */
+  .radio-group { display: flex; flex-direction: column; gap: 8px; }
+  .radio-label { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 14px; }
+
+  /* --- Update btn --- */
+  .btn-update { background: #2F6F4E; color: #F4F1EA; border: none; border-radius: 3px; padding: 10px 20px; font-size: 13px; cursor: pointer; font-weight: 600; margin-top: 16px; }
+  .btn-update:disabled { background: #8a8273; cursor: not-allowed; }
+
+  .empty { padding: 24px; text-align: center; color: #8a8273; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<!-- Config -->
+<div class="config-bar">
+  <span>API Base URL:</span>
+  <input type="text" id="apiUrl" placeholder="https://tu-instancia.app.n8n.cloud/webhook" />
+  <button onclick="conectar()">Conectar</button>
+  <span id="connStatus" style="margin-left:8px">⚪ Sin conectar</span>
+</div>
+
+<!-- Header -->
+<div class="header">
+  <div>
+    <h1>Libro de Cheques</h1>
+    <div class="sub">Sistema inteligente de recepción y clasificación</div>
+  </div>
+  <div class="tabs" id="tabs"></div>
+</div>
+
+<div class="content" id="content">
+  <div class="loading">Configurá la URL del webhook de n8n arriba para empezar.</div>
+</div>
+
+<script>
+// ---------- State ----------
+let cheques = [];
+let currentTab = 'Dashboard';
+let selectedCheque = null;
+let filtroEstado = 'Todos';
+let busqueda = '';
+let API_BASE = '';
+let connected = false;
+
+const ESTADO_COLOR = { Pendiente: '#C98A2B', Depositado: '#2F6F4E', Acreditado: '#3D6FA1', Rechazado: '#A13D2B' };
+const TABS = ['Dashboard', 'Gestión', 'Detalle'];
+
+function fmtMoney(n) { return '$' + Number(n).toLocaleString('es-AR'); }
+function fmtDate(d) {
+  if (!d) return '-';
+  const parts = d.split('T')[0].split('-');
+  return parts[2] + '/' + parts[1] + '/' + parts[0].slice(2);
+}
+function daysUntil(dateStr) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const target = new Date(dateStr);
+  return Math.round((target - today) / 86400000);
+}
+function estadoTag(estado) {
+  const c = ESTADO_COLOR[estado] || '#666';
+  return `<span class="estado-tag" style="color:${c};border-color:${c}"><span class="dot" style="background:${c}"></span>${estado}</span>`;
+}
+
+// ---------- API ----------
+async function fetchCheques() {
+  try {
+    const r = await fetch(API_BASE + '/cheques/listar');
+    const data = await r.json();
+    cheques = Array.isArray(data) ? data : [data];
+    return true;
+  } catch(e) { console.error(e); return false; }
+}
+
+async function updateEstado(numeroCheque, estado) {
+  try {
+    await fetch(API_BASE + '/cheques/estado', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ numero_cheque: numeroCheque, estado })
+    });
+    await fetchCheques();
+    selectedCheque = cheques.find(c => c.numero_cheque === numeroCheque) || null;
+    render();
+  } catch(e) { console.error(e); }
+}
+
+async function conectar() {
+  const url = document.getElementById('apiUrl').value.trim().replace(/\/$/, '');
+  if (!url) return;
+  API_BASE = url;
+  document.getElementById('connStatus').textContent = '🟡 Conectando...';
+  const ok = await fetchCheques();
+  if (ok) {
+    connected = true;
+    document.getElementById('connStatus').textContent = '🟢 Conectado (' + cheques.length + ' cheques)';
+    render();
+  } else {
+    document.getElementById('connStatus').textContent = '🔴 Error de conexión';
+  }
+}
+
+// ---------- Render ----------
+function render() {
+  // Tabs
+  const tabsEl = document.getElementById('tabs');
+  tabsEl.innerHTML = TABS.map(t =>
+    `<button class="${currentTab === t ? 'active' : ''}" onclick="switchTab('${t}')">${t}</button>`
+  ).join('');
+
+  const content = document.getElementById('content');
+  if (!connected) {
+    content.innerHTML = '<div class="loading">Configurá la URL del webhook de n8n arriba para empezar.</div>';
+    return;
+  }
+
+  if (currentTab === 'Dashboard') renderDashboard(content);
+  else if (currentTab === 'Gestión') renderGestion(content);
+  else if (currentTab === 'Detalle') renderDetalle(content);
+}
+
+function switchTab(t) { currentTab = t; render(); }
+
+function selectCheque(id) {
+  selectedCheque = cheques.find(c => c.numero_cheque === id) || null;
+  currentTab = 'Detalle';
+  render();
+}
+
+// ---------- Dashboard ----------
+function renderDashboard(el) {
+  const pendientes = cheques.filter(c => c.estado === 'Pendiente');
+  const depositados = cheques.filter(c => c.estado === 'Depositado');
+  const rechazados = cheques.filter(c => c.estado === 'Rechazado');
+  const proximos = [...pendientes].sort((a,b) => new Date(a.fecha_vencimiento) - new Date(b.fecha_vencimiento));
+
+  // Bancos
+  const bancoMap = {};
+  cheques.forEach(c => { bancoMap[c.banco_emisor] = (bancoMap[c.banco_emisor] || 0) + Number(c.monto); });
+  const maxBanco = Math.max(...Object.values(bancoMap), 1);
+
+  el.innerHTML = `
+    <div class="stat-row">
+      ${statCard('Pendientes', pendientes.length, ESTADO_COLOR.Pendiente, fmtMoney(pendientes.reduce((s,c) => s + Number(c.monto), 0)))}
+      ${statCard('Depositados', depositados.length, ESTADO_COLOR.Depositado, fmtMoney(depositados.reduce((s,c) => s + Number(c.monto), 0)))}
+      ${statCard('Rechazados', rechazados.length, ESTADO_COLOR.Rechazado, fmtMoney(rechazados.reduce((s,c) => s + Number(c.monto), 0)))}
+    </div>
+    <div class="divider"></div>
+    <h3 class="section-title">Próximos vencimientos</h3>
+    <div class="table-wrap">
+      ${proximos.length === 0 ? '<div class="empty">No hay cheques pendientes.</div>' :
+        proximos.map((c, i) => {
+          const d = daysUntil(c.fecha_vencimiento);
+          return `<div class="table-row table-5-dash" style="background:${i%2 ? '#FBF8F2' : '#F4F1EA'}" onclick="selectCheque('${c.numero_cheque}')">
+            <span style="font-weight:600">${c.cliente_razon_social}</span>
+            <span style="color:#6b6457;font-size:14px">${c.banco_emisor}</span>
+            <span class="mono" style="font-size:13px">${fmtDate(c.fecha_vencimiento)}</span>
+            <span class="mono" style="font-size:13px">${fmtMoney(c.monto)}</span>
+            <span class="mono" style="font-size:11px;color:${d<=2?'#A13D2B':'#8a8273'};justify-self:end">${d<=0?'vencido':'en '+d+'d'}</span>
+          </div>`;
+        }).join('')}
+    </div>
+    <div class="divider"></div>
+    <h3 class="section-title">Distribución por banco</h3>
+    ${Object.entries(bancoMap).map(([banco, total]) => `
+      <div class="bar-row">
+        <span class="bar-label">${banco}</span>
+        <div class="bar-track"><div class="bar-fill" style="width:${(total/maxBanco)*100}%"></div></div>
+        <span class="bar-value">${fmtMoney(total)}</span>
+      </div>
+    `).join('')}
+  `;
+}
+
+function statCard(label, value, accent, sub) {
+  return `<div class="stat-card">
+    <div class="accent" style="background:${accent}"></div>
+    <div class="label">${label}</div>
+    <div class="value">${value}</div>
+    ${sub ? `<div class="sub">${sub}</div>` : ''}
+  </div>`;
+}
+
+// ---------- Gestión ----------
+function renderGestion(el) {
+  const filtrados = cheques.filter(c => {
+    const matchE = filtroEstado === 'Todos' || c.estado === filtroEstado;
+    const matchB = busqueda === '' || c.cliente_razon_social.toLowerCase().includes(busqueda.toLowerCase()) || c.numero_cheque.includes(busqueda);
+    return matchE && matchB;
+  });
+
+  el.innerHTML = `
+    <h3 class="section-title">Gestión de cheques</h3>
+    <div class="filters">
+      <input placeholder="Buscar por cliente o número..." value="${busqueda}" oninput="busqueda=this.value;render()" />
+      ${['Todos','Pendiente','Depositado','Acreditado','Rechazado'].map(e =>
+        `<button class="filter-btn ${filtroEstado===e?'active':''}" onclick="filtroEstado='${e}';render()">${e}</button>`
+      ).join('')}
+    </div>
+    <div class="table-wrap">
+      <div class="table-head table-5"><span>Nº</span><span>Cliente</span><span>Banco</span><span>Monto</span><span>Estado</span></div>
+      ${filtrados.length === 0 ? '<div class="empty">No hay cheques que coincidan.</div>' :
+        filtrados.map((c, i) => `
+          <div class="table-row table-5" style="background:${i%2?'#FBF8F2':'#F4F1EA'}" onclick="selectCheque('${c.numero_cheque}')">
+            <span class="mono" style="font-size:13px">${c.numero_cheque}</span>
+            <span style="font-weight:600">${c.cliente_razon_social}</span>
+            <span style="font-size:14px;color:#6b6457">${c.banco_emisor}</span>
+            <span class="mono" style="font-size:13px">${fmtMoney(c.monto)}</span>
+            ${estadoTag(c.estado)}
+          </div>
+        `).join('')}
+    </div>
+  `;
+}
+
+// ---------- Detalle ----------
+function renderDetalle(el) {
+  if (!selectedCheque) {
+    el.innerHTML = '<div class="empty">Seleccioná un cheque desde el Dashboard o la Gestión para ver el detalle.</div>';
+    return;
+  }
+  const c = selectedCheque;
+  const estados = ['Pendiente','Depositado','Acreditado','Rechazado'];
+
+  el.innerHTML = `
+    <h3 class="section-title">Cheque Nº ${c.numero_cheque}</h3>
+    <div class="detail-card">
+      <div class="detail-row"><span class="detail-label">Cliente</span><span class="detail-value">${c.cliente_razon_social}</span></div>
+      <div class="detail-row"><span class="detail-label">Banco</span><span class="detail-value">${c.banco_emisor}</span></div>
+      <div class="detail-row"><span class="detail-label">CUIT</span><span class="detail-value mono">${c.cuit || '-'}</span></div>
+      <div class="detail-row"><span class="detail-label">Monto</span><span class="detail-value mono">${fmtMoney(c.monto)}</span></div>
+      <div class="detail-row"><span class="detail-label">Emisión</span><span class="detail-value mono">${fmtDate(c.fecha_emision)}</span></div>
+      <div class="detail-row"><span class="detail-label">Vencimiento</span><span class="detail-value mono">${fmtDate(c.fecha_vencimiento)}</span></div>
+      <div class="detail-row"><span class="detail-label">Confianza IA</span><span class="detail-value mono">${c.confianza_ia ? (c.confianza_ia * 100).toFixed(0) + '%' : '-'}</span></div>
+      <div class="detail-row"><span class="detail-label">Inconsistencia</span><span class="detail-value">${c.inconsistencia ? '⚠️ Sí' : '✓ No'}</span></div>
+      ${c.imagen_url ? `<div style="margin-top:16px"><img src="${c.imagen_url}" style="max-width:100%;border:1px solid #C7BFAE;border-radius:4px" /></div>` : ''}
+      <div class="divider"></div>
+      <div style="font-size:12px;text-transform:uppercase;letter-spacing:0.06em;color:#6b6457;margin-bottom:10px">Estado</div>
+      <div class="radio-group">
+        ${estados.map(e => `
+          <label class="radio-label" style="color:${c.estado===e?'#1F2D3D':'#6b6457'}">
+            <input type="radio" name="estado" value="${e}" ${c.estado===e?'checked':''} onchange="updateEstado('${c.numero_cheque}','${e}')" />
+            ${estadoTag(e)}
+          </label>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+// Init
+render();
+</script>
+</body>
+</html>

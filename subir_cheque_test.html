@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Subir Cheque - Test</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" />
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: #EFE9DD;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .card {
+    background: #FBF8F2;
+    border: 1px solid #C7BFAE;
+    border-radius: 6px;
+    padding: 32px;
+    max-width: 480px;
+    width: 100%;
+  }
+  h1 {
+    font-size: 20px;
+    color: #1F2D3D;
+    margin-bottom: 6px;
+  }
+  .sub {
+    font-size: 13px;
+    color: #8a8273;
+    margin-bottom: 24px;
+  }
+  label {
+    display: block;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6b6457;
+    margin-bottom: 6px;
+  }
+  .url-input {
+    width: 100%;
+    border: 1px solid #C7BFAE;
+    border-radius: 3px;
+    padding: 10px;
+    font-size: 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    color: #1F2D3D;
+    background: #fff;
+    margin-bottom: 20px;
+  }
+  .dropzone {
+    border: 2px dashed #C7BFAE;
+    border-radius: 6px;
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    background: #F4F1EA;
+    transition: border-color 0.2s, background 0.2s;
+    margin-bottom: 20px;
+  }
+  .dropzone:hover, .dropzone.dragover {
+    border-color: #C98A2B;
+    background: #F9F4E8;
+  }
+  .dropzone p {
+    color: #6b6457;
+    font-size: 14px;
+    margin-bottom: 6px;
+  }
+  .dropzone small {
+    color: #8a8273;
+    font-size: 12px;
+  }
+  .preview {
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  .preview img {
+    max-width: 100%;
+    max-height: 200px;
+    border: 1px solid #C7BFAE;
+    border-radius: 4px;
+  }
+  .preview .filename {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: #6b6457;
+    margin-top: 8px;
+  }
+  .btn {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .btn-primary {
+    background: #1F2D3D;
+    color: #F4F1EA;
+  }
+  .btn-primary:disabled {
+    background: #8a8273;
+    cursor: not-allowed;
+  }
+  .status {
+    margin-top: 16px;
+    padding: 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    display: none;
+  }
+  .status.success {
+    display: block;
+    background: #e8f5e9;
+    border: 1px solid #2F6F4E;
+    color: #2F6F4E;
+  }
+  .status.error {
+    display: block;
+    background: #fbe9e7;
+    border: 1px solid #A13D2B;
+    color: #A13D2B;
+  }
+  .status.loading {
+    display: block;
+    background: #fff8e1;
+    border: 1px solid #C98A2B;
+    color: #C98A2B;
+  }
+  .response-data {
+    margin-top: 16px;
+    background: #1F2D3D;
+    color: #a8e6cf;
+    padding: 16px;
+    border-radius: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 300px;
+    overflow-y: auto;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <h1>Subir Cheque</h1>
+  <p class="sub">Formulario de prueba para enviar imágenes al webhook de n8n</p>
+
+  <label for="webhookUrl">URL del Webhook (copiala de n8n)</label>
+  <input
+    type="text"
+    id="webhookUrl"
+    class="url-input"
+    placeholder="https://tu-instancia.app.n8n.cloud/webhook-test/cheques/nuevo"
+  />
+
+  <label>Imagen del cheque</label>
+  <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
+    <p>Arrastrá una imagen o hacé clic para seleccionar</p>
+    <small>JPG, PNG — máximo 10 MB</small>
+  </div>
+  <input type="file" id="fileInput" accept="image/*" style="display:none" />
+
+  <div class="preview" id="preview" style="display:none">
+    <img id="previewImg" />
+    <div class="filename" id="fileName"></div>
+  </div>
+
+  <button class="btn btn-primary" id="sendBtn" disabled onclick="enviarCheque()">
+    Enviar cheque al webhook
+  </button>
+
+  <div class="status" id="status"></div>
+  <div class="response-data" id="responseData"></div>
+</div>
+
+<script>
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const preview = document.getElementById('preview');
+  const previewImg = document.getElementById('previewImg');
+  const fileName = document.getElementById('fileName');
+  const sendBtn = document.getElementById('sendBtn');
+  const status = document.getElementById('status');
+  const responseData = document.getElementById('responseData');
+
+  let selectedFile = null;
+
+  // Drag & drop
+  dropzone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropzone.classList.add('dragover');
+  });
+  dropzone.addEventListener('dragleave', () => {
+    dropzone.classList.remove('dragover');
+  });
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('dragover');
+    if (e.dataTransfer.files.length) {
+      handleFile(e.dataTransfer.files[0]);
+    }
+  });
+
+  // File input
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files.length) {
+      handleFile(fileInput.files[0]);
+    }
+  });
+
+  function handleFile(file) {
+    if (!file.type.startsWith('image/')) {
+      alert('Solo se aceptan imágenes');
+      return;
+    }
+    selectedFile = file;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      previewImg.src = e.target.result;
+      fileName.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+      preview.style.display = 'block';
+      dropzone.style.display = 'none';
+      sendBtn.disabled = false;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function enviarCheque() {
+    const url = document.getElementById('webhookUrl').value.trim();
+    if (!url) {
+      alert('Pegá la URL del webhook de n8n primero');
+      return;
+    }
+    if (!selectedFile) {
+      alert('Seleccioná una imagen primero');
+      return;
+    }
+
+    // Show loading
+    status.className = 'status loading';
+    status.textContent = 'Enviando imagen al webhook... esperá unos segundos mientras la IA la procesa.';
+    responseData.style.display = 'none';
+    sendBtn.disabled = true;
+
+    try {
+      const formData = new FormData();
+      formData.append('imagen', selectedFile);
+
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        status.className = 'status success';
+        status.textContent = '✓ Cheque procesado correctamente';
+      } else {
+        status.className = 'status error';
+        status.textContent = '⚠ El webhook respondió con error ' + response.status;
+      }
+
+      responseData.textContent = JSON.stringify(data, null, 2);
+      responseData.style.display = 'block';
+
+    } catch (err) {
+      status.className = 'status error';
+      status.textContent = '✗ Error de conexión: ' + err.message;
+    }
+
+    sendBtn.disabled = false;
+  }
+</script>
+
+</body>
+</html>

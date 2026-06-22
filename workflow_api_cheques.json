@@ -1,0 +1,169 @@
+{
+  "name": "API Cheques - Dashboard",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "cheques/listar",
+        "responseMode": "lastNode",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" }
+            ]
+          }
+        }
+      },
+      "id": "2a2a2a20-0001-4000-8000-000000000001",
+      "name": "Webhook - Listar Cheques",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-600, 0],
+      "webhookId": "cheques-listar"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, numero_cheque, banco_emisor, cliente_razon_social, cuit, monto::float, fecha_emision, fecha_vencimiento, estado, imagen_url, confianza_ia::float, inconsistencia, observaciones, creado_en FROM cheques ORDER BY creado_en DESC;"
+      },
+      "id": "2a2a2a20-0001-4000-8000-000000000002",
+      "name": "Neon - Obtener Cheques",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [-360, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" }
+            ]
+          }
+        }
+      },
+      "id": "2a2a2a20-0001-4000-8000-000000000003",
+      "name": "Responder Lista",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [-120, 0]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cheques/estado",
+        "responseMode": "lastNode",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" }
+            ]
+          }
+        }
+      },
+      "id": "2a2a2a20-0001-4000-8000-000000000004",
+      "name": "Webhook - Actualizar Estado",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-600, 300],
+      "webhookId": "cheques-estado"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=UPDATE cheques SET estado = '{{ $json.body.estado }}' WHERE numero_cheque = '{{ $json.body.numero_cheque }}' RETURNING *;"
+      },
+      "id": "2a2a2a20-0001-4000-8000-000000000005",
+      "name": "Neon - Actualizar Estado",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [-360, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" }
+            ]
+          }
+        }
+      },
+      "id": "2a2a2a20-0001-4000-8000-000000000006",
+      "name": "Responder Estado",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [-120, 300]
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "cheques/resumen",
+        "responseMode": "lastNode",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" }
+            ]
+          }
+        }
+      },
+      "id": "2a2a2a20-0001-4000-8000-000000000007",
+      "name": "Webhook - Resumen Dashboard",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-600, 600],
+      "webhookId": "cheques-resumen"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT json_build_object('resumen', (SELECT json_agg(r) FROM vista_resumen_estados r), 'proximos', (SELECT json_agg(p) FROM vista_proximos_vencimientos p), 'bancos', (SELECT json_agg(b) FROM vista_distribucion_banco b)) AS dashboard;"
+      },
+      "id": "2a2a2a20-0001-4000-8000-000000000008",
+      "name": "Neon - Dashboard Data",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [-360, 600]
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" }
+            ]
+          }
+        }
+      },
+      "id": "2a2a2a20-0001-4000-8000-000000000009",
+      "name": "Responder Resumen",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [-120, 600]
+    }
+  ],
+  "connections": {
+    "Webhook - Listar Cheques": {
+      "main": [[{ "node": "Neon - Obtener Cheques", "type": "main", "index": 0 }]]
+    },
+    "Neon - Obtener Cheques": {
+      "main": [[{ "node": "Responder Lista", "type": "main", "index": 0 }]]
+    },
+    "Webhook - Actualizar Estado": {
+      "main": [[{ "node": "Neon - Actualizar Estado", "type": "main", "index": 0 }]]
+    },
+    "Neon - Actualizar Estado": {
+      "main": [[{ "node": "Responder Estado", "type": "main", "index": 0 }]]
+    },
+    "Webhook - Resumen Dashboard": {
+      "main": [[{ "node": "Neon - Dashboard Data", "type": "main", "index": 0 }]]
+    },
+    "Neon - Dashboard Data": {
+      "main": [[{ "node": "Responder Resumen", "type": "main", "index": 0 }]]
+    }
+  }
+}
